@@ -8,57 +8,12 @@ import pandas as pd
 import streamlit as st
 import tldextract
 
-# Page Configuration
+# Page Configuration & Layout
 st.set_page_config(
-    page_title="Phishing URL Detector | CST9",
+    page_title="Phishing URL Detector",
     page_icon="🛡️",
     layout="centered",
     initial_sidebar_state="expanded",
-)
-
-# Custom Styling
-st.markdown(
-    """
-    <style>
-    /* Card Container */
-    .metric-box {
-        background-color: #1e222d;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        margin-bottom: 20px;
-    }
-    /* Threat Badges */
-    .badge-phish {
-        background-color: #ff4b4b;
-        color: white;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-weight: bold;
-        font-size: 14px;
-    }
-    .badge-benign {
-        background-color: #00c853;
-        color: white;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-weight: bold;
-        font-size: 14px;
-    }
-    /* Feature Pills */
-    .feature-pill {
-        background-color: #2b303e;
-        color: #e0e0e0;
-        padding: 6px 14px;
-        border-radius: 15px;
-        display: inline-block;
-        margin: 4px;
-        font-size: 13px;
-        border: 1px solid #3d4455;
-    }
-    </style>
-""",
-    unsafe_allow_html=True,
 )
 
 
@@ -94,7 +49,7 @@ try:
     model_loaded = True
 except Exception as e:
     model_loaded = False
-    st.error(f"Error loading artifacts: {e}")
+    st.error(f"Error loading model artifacts: {e}")
 
 
 def calculate_entropy(text):
@@ -132,7 +87,8 @@ def extract_url_features(url):
         "signin",
         "confirm",
     ]
-    suspicious_words = sum(1 for kw in keywords if kw in url.lower())
+    found_keywords = [kw for kw in keywords if kw in url.lower()]
+    suspicious_words = len(found_keywords)
 
     special_chars = r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,<>\/?]"
     special_char_count = len(re.findall(special_chars, url))
@@ -149,6 +105,7 @@ def extract_url_features(url):
         "num_subdirs": num_subdirs,
         "num_params": num_params,
         "suspicious_words": suspicious_words,
+        "found_keywords": found_keywords,
         "tld": tld,
         "special_char_count": special_char_count,
         "digits_count": digits_count,
@@ -156,69 +113,83 @@ def extract_url_features(url):
     }
 
 
-# Sidebar
-with st.sidebar:
-    st.image(
-        "https://img.icons8.com/isometric/100/shield-security.png", width=80
-    )
-    st.title("Phishing URL Detector")
-    st.caption("CST9 Final Project | University of Mindanao")
-    st.divider()
+def generate_threat_reasons(feats):
+    reasons = []
+    if feats["has_ip"] == 1:
+        reasons.append(
+            "Uses a direct IP address instead of a standard domain name."
+        )
+    if feats["suspicious_words"] > 0:
+        words_str = ", ".join([f"'{w}'" for w in feats["found_keywords"]])
+        reasons.append(
+            f"Contains sensitive target keyword(s): {words_str}."
+        )
+    if feats["url_length"] > 75:
+        reasons.append(
+            f"Excessively long URL string ({feats['url_length']} characters)."
+        )
+    if feats["num_dots"] > 3:
+        reasons.append(
+            f"High sub-domain depth detected ({feats['num_dots']} dots)."
+        )
+    if feats["entropy"] > 4.2:
+        reasons.append(
+            f"High character entropy ({feats['entropy']:.2f}) suggesting random string obfuscation."
+        )
+    if feats["special_char_count"] > 10:
+        reasons.append(
+            f"Unusual density of special characters ({feats['special_char_count']} special symbols)."
+        )
 
-    st.markdown("### 📊 Model Architecture")
-    st.markdown(
+    if not reasons:
+        reasons.append(
+            "Overall structural features resemble typical phishing pattern distribution in training data."
+        )
+
+    return reasons
+
+
+# Sidebar Info
+with st.sidebar:
+    st.header("⚙️ Model Info")
+    st.info(
         """
-    - **Classifier**: Logistic Regression (Config 2)
-    - **Dataset Size**: 160,064 sample URLs
-    - **Features**: 11 Lexical & Structural Metrics
-    - **Target**: Static Content-Independent Detection
+    - **Model**: Logistic Regression (Config 2)
+    - **Scope**: Lexical Feature Analysis
+    - **Dataset**: 160,064 records
     """
     )
     st.divider()
-
-    st.markdown("### ⚠️ Dataset Artifact Notice")
-    st.caption(
-        "Notice: The training set contains formatting biases (100% of benign URLs lack protocol prefixes and TLD entries). Inputs are processed as-is to reflect true model behavior."
-    )
+    st.caption("CST9 Project | University of Mindanao")
 
 
-# Header & Title
+# UI Header
 st.title("🛡️ Phishing URL Detector")
 st.markdown(
     "Analyze web links in real-time using **Lexical Feature Extraction** and **Logistic Regression**."
 )
 st.divider()
 
-# Demo Sample Buttons
-st.markdown("**Quick Test Samples:**")
-col_s1, col_s2, col_s3 = st.columns(3)
-sample_url = ""
-
-if col_s1.button("📌 Phishing Example 1"):
-    sample_url = "http://login-verify-account-update.com/signin"
-if col_s2.button("📌 Phishing Example 2"):
-    sample_url = "http://192.168.1.1/banking/login.php"
-if col_s3.button("📌 Dataset Benign Format"):
-    sample_url = "google.com"
-
-# Input Box
+# Input Form
 url_input = st.text_input(
-    "Enter or paste URL to analyze:",
-    value=sample_url if sample_url else "",
-    placeholder="e.g., http://secure-login-portal.com/update",
+    "Enter URL to Analyze:",
+    placeholder="e.g., http://login-verify-account.com/signin",
 )
 
-# Execution
-if st.button("🔍 Run Security Analysis", type="primary", use_container_width=True):
+if st.button("🔍 Analyze URL", type="primary", use_container_width=True):
     if not url_input.strip():
-        st.warning("⚠️ Please enter a valid URL to analyze.")
+        st.warning("⚠️ Please enter a URL to inspect.")
     elif not model_loaded:
-        st.error("❌ Model artifacts failed to load properly.")
+        st.error("❌ Model artifacts failed to load.")
     else:
         feats = extract_url_features(url_input)
-        df_feat = pd.DataFrame([feats])
 
-        # Feature processing
+        # Prepare DataFrame for pipeline
+        feat_dict_for_df = feats.copy()
+        feat_dict_for_df.pop("found_keywords", None)
+        df_feat = pd.DataFrame([feat_dict_for_df])
+
+        # Encode and Scale
         df_encoded = pd.get_dummies(df_feat)
         df_encoded = df_encoded.reindex(columns=feature_cols, fill_value=0)
 
@@ -234,73 +205,72 @@ if st.button("🔍 Run Security Analysis", type="primary", use_container_width=T
         prob = model.predict_proba(X_input)[0]
         phish_prob = prob[1] * 100
 
-        st.subheader("Analysis Results")
+        st.divider()
 
-        # Visual Result Summary Card
-        res_col1, res_col2 = st.columns([1, 2])
+        # Result Banner & Metrics
+        col_res1, col_res2 = st.columns([1, 1])
 
-        with res_col1:
+        with col_res1:
             if prediction == 1 or phish_prob > 50.0:
-                st.markdown(
-                    "<span class='badge-phish'>⚠️ HIGH RISK PHISHING</span>",
-                    unsafe_allow_html=True,
-                )
-                st.metric(
-                    label="Phishing Probability", value=f"{phish_prob:.2f}%"
-                )
+                st.error("🚨 **HIGH RISK: PHISHING DETECTED**")
+                st.metric("Phishing Probability", f"{phish_prob:.2f}%")
             else:
-                st.markdown(
-                    "<span class='badge-benign'>✅ LOW RISK BENIGN</span>",
-                    unsafe_allow_html=True,
-                )
-                st.metric(
-                    label="Legitimate Probability",
-                    value=f"{100 - phish_prob:.2f}%",
-                )
+                st.success("✅ **LOW RISK: BENIGN URL**")
+                st.metric("Legitimate Confidence", f"{100 - phish_prob:.2f}%")
 
-        with res_col2:
-            st.write("**Risk Meter:**")
-            st.progress(int(phish_prob))
+        with col_res2:
+            st.write("**Threat Confidence Level:**")
+            st.progress(int(phish_prob) / 100)
+
             if phish_prob > 50.0:
                 st.caption(
-                    "🚨 This URL exhibits lexical patterns frequently observed in phishing vectors."
+                    "⚠️ **Recommendation**: Do not enter credentials or download files from this link."
                 )
             else:
                 st.caption(
-                    "✅ This URL exhibits lexical structure aligning with benign samples."
+                    "🔒 **Recommendation**: URL structure aligns with standard benign patterns."
                 )
 
         st.divider()
 
-        # Detailed Tabs
-        tab1, tab2 = st.tabs(
-            ["📊 Extracted Feature Metrics", "💻 Raw JSON Breakdown"]
-        )
+        # Suspicious Reason Analysis
+        if prediction == 1 or phish_prob > 50.0:
+            st.subheader("🧐 Why is this URL suspicious?")
+            reasons = generate_threat_reasons(feats)
+            for r in reasons:
+                st.markdown(f"- ⚠️ {r}")
+            st.divider()
 
-        with tab1:
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("URL Length", feats["url_length"])
-            m2.metric("Dot Count", feats["num_dots"])
-            m3.metric("HTTPS Enabled", "Yes" if feats["has_https"] else "No")
-            m4.metric("IP Domain", "Yes" if feats["has_ip"] else "No")
+        # Clean Feature Table (Replaces raw JSON)
+        st.subheader("📊 Extracted Lexical Features")
 
-            m5, m6, m7, m8 = st.columns(4)
-            m5.metric("Subdirectories", feats["num_subdirs"])
-            m6.metric("Parameters", feats["num_params"])
-            m7.metric("Suspicious Words", feats["suspicious_words"])
-            m8.metric("TLD Suffix", feats["tld"])
+        table_data = {
+            "Feature Metric": [
+                "URL Length",
+                "Dot Count",
+                "HTTPS Protocol",
+                "IP Address Usage",
+                "Subdirectory Depth",
+                "Query Parameters",
+                "Suspicious Keywords",
+                "TLD Suffix",
+                "Special Character Count",
+                "Digits Count",
+                "Shannon Entropy Score",
+            ],
+            "Value": [
+                f"{feats['url_length']} chars",
+                feats["num_dots"],
+                "Yes" if feats["has_https"] else "No",
+                "Yes" if feats["has_ip"] else "No",
+                feats["num_subdirs"],
+                feats["num_params"],
+                feats["suspicious_words"],
+                feats["tld"],
+                feats["special_char_count"],
+                feats["digits_count"],
+                f"{feats['entropy']:.4f}",
+            ],
+        }
 
-            st.write("**Structural Entropy & Character Counts:**")
-            st.markdown(
-                f"""
-                <div style="background-color: #1e222d; padding: 15px; border-radius: 8px;">
-                    <span class="feature-pill"><b>Entropy:</b> {feats['entropy']:.4f}</span>
-                    <span class="feature-pill"><b>Special Chars:</b> {feats['special_char_count']}</span>
-                    <span class="feature-pill"><b>Digits Count:</b> {feats['digits_count']}</span>
-                </div>
-            """,
-                unsafe_allow_html=True,
-            )
-
-        with tab2:
-            st.json(feats)
+        st.table(pd.DataFrame(table_data))
