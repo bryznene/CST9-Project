@@ -9,7 +9,7 @@ import streamlit as st
 import tldextract
 
 st.set_page_config(
-    page_title="Phishing URL Detector", page_icon="🛡️", layout="centered"
+    page_title="Phishing URL Detector", page_icon="", layout="centered"
 )
 
 
