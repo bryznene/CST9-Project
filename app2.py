@@ -151,7 +151,7 @@ def generate_threat_reasons(feats):
 
 # Sidebar Info
 with st.sidebar:
-    st.header("⚙️ Model Info")
+    st.header("Model Info")
     st.info(
         """
     - **Model**: Logistic Regression (Config 2)
@@ -212,7 +212,7 @@ if st.button("Analyze URL", type="primary", use_container_width=True):
 
         with col_res1:
             if prediction == 1 or phish_prob > 50.0:
-                st.error("🚨 **HIGH RISK: PHISHING DETECTED**")
+                st.error("**HIGH RISK: PHISHING DETECTED**")
                 st.metric("Phishing Probability", f"{phish_prob:.2f}%")
             else:
                 st.success("**LOW RISK: BENIGN URL**")
