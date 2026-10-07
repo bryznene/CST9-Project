@@ -2,29 +2,151 @@ import math
 import os
 import re
 from urllib.parse import urlparse
+
 import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
 import tldextract
 
-# Page Configuration & Layout
+
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
 st.set_page_config(
-    page_title="Phishing URL Detector",
+    page_title="Phishing URL Detection System",
     page_icon="🛡️",
-    layout="centered",
-    initial_sidebar_state="expanded",
+    layout="centered"
 )
 
 
-# Load artifacts matching saved pipeline
+# =========================================================
+# CUSTOM CSS
+# =========================================================
+st.markdown("""
+<style>
+
+    /* Main page */
+    .main {
+        padding-top: 2rem;
+    }
+
+    /* Main title */
+    .main-title {
+        font-size: 38px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .subtitle {
+        font-size: 16px;
+        color: #a0a0a0;
+        margin-bottom: 30px;
+    }
+
+    /* Result cards */
+    .result-card {
+        padding: 25px;
+        border-radius: 12px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .danger-card {
+        background-color: rgba(220, 53, 69, 0.12);
+        border: 1px solid rgba(220, 53, 69, 0.45);
+    }
+
+    .safe-card {
+        background-color: rgba(25, 135, 84, 0.12);
+        border: 1px solid rgba(25, 135, 84, 0.45);
+    }
+
+    .result-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .result-description {
+        font-size: 14px;
+        color: #bdbdbd;
+    }
+
+    /* Probability */
+    .probability-label {
+        font-size: 15px;
+        font-weight: 600;
+        margin-top: 20px;
+        margin-bottom: 5px;
+    }
+
+    .probability-value {
+        font-size: 36px;
+        font-weight: 700;
+    }
+
+    /* Feature section */
+    .section-title {
+        font-size: 21px;
+        font-weight: 600;
+        margin-top: 25px;
+        margin-bottom: 10px;
+    }
+
+    /* Info cards */
+    .info-card {
+        padding: 18px;
+        border-radius: 10px;
+        background-color: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        margin-bottom: 10px;
+    }
+
+    .info-label {
+        font-size: 13px;
+        color: #999999;
+    }
+
+    .info-value {
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        color: #777777;
+        font-size: 13px;
+        margin-top: 45px;
+        padding-bottom: 20px;
+    }
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# =========================================================
+# LOAD MODEL ARTIFACTS
+# =========================================================
 @st.cache_resource
 def load_artifacts():
-    model = joblib.load("artifacts/logistic_regression_phishing_model.joblib")
-    scaler = joblib.load("artifacts/feature_scaler.joblib")
-    feature_cols = joblib.load("artifacts/feature_columns.joblib")
+
+    model = joblib.load(
+        "artifacts/logistic_regression_phishing_model.joblib"
+    )
+
+    scaler = joblib.load(
+        "artifacts/feature_scaler.joblib"
+    )
+
+    feature_cols = joblib.load(
+        "artifacts/feature_columns.joblib"
+    )
 
     scaled_cols_path = "artifacts/scaled_columns.joblib"
+
     if os.path.exists(scaled_cols_path):
         scaled_cols = joblib.load(scaled_cols_path)
     else:
@@ -44,39 +166,104 @@ def load_artifacts():
     return model, scaler, feature_cols, scaled_cols
 
 
+# =========================================================
+# LOAD MODEL
+# =========================================================
 try:
+
     model, scaler, feature_cols, scaled_cols = load_artifacts()
+
     model_loaded = True
+
 except Exception as e:
+
     model_loaded = False
-    st.error(f"Error loading model artifacts: {e}")
+
+    st.error(
+        f"Unable to load the model artifacts. "
+        f"Please check the artifacts folder.\n\n{e}"
+    )
 
 
+# =========================================================
+# ENTROPY CALCULATION
+# =========================================================
 def calculate_entropy(text):
+
     if not text:
         return 0.0
-    prob = [float(text.count(c)) / len(text) for c in set(text)]
-    return -sum([p * math.log(p, 2) for p in prob])
+
+    prob = [
+        float(text.count(c)) / len(text)
+        for c in set(text)
+    ]
+
+    return -sum(
+        p * math.log(p, 2)
+        for p in prob
+    )
 
 
+# =========================================================
+# URL FEATURE EXTRACTION
+# =========================================================
 def extract_url_features(url):
+
     parsed = urlparse(url)
+
     ext = tldextract.extract(url)
 
+    # URL length
     url_length = len(url)
+
+    # Number of dots
     num_dots = url.count(".")
-    has_https = 1 if parsed.scheme.lower() == "https" else 0
 
-    domain = parsed.netloc or parsed.path.split("/")[0]
-    ip_pattern = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
-    has_ip = 1 if ip_pattern.match(domain.split(":")[0]) else 0
-
-    path = parsed.path
-    num_subdirs = max(
-        0, path.count("/") - (1 if path.endswith("/") else 0)
+    # HTTPS
+    has_https = (
+        1
+        if parsed.scheme.lower() == "https"
+        else 0
     )
-    num_params = len(parsed.query.split("&")) if parsed.query else 0
 
+    # IP address detection
+    domain = (
+        parsed.netloc
+        or parsed.path.split("/")[0]
+    )
+
+    ip_pattern = re.compile(
+        r"^\d{1,3}\."
+        r"\d{1,3}\."
+        r"\d{1,3}\."
+        r"\d{1,3}$"
+    )
+
+    has_ip = (
+        1
+        if ip_pattern.match(
+            domain.split(":")[0]
+        )
+        else 0
+    )
+
+    # Path depth
+    path = parsed.path
+
+    num_subdirs = max(
+        0,
+        path.count("/")
+        - (1 if path.endswith("/") else 0)
+    )
+
+    # URL parameters
+    num_params = (
+        len(parsed.query.split("&"))
+        if parsed.query
+        else 0
+    )
+
+    # Suspicious keywords
     keywords = [
         "login",
         "verify",
@@ -87,15 +274,40 @@ def extract_url_features(url):
         "signin",
         "confirm",
     ]
-    found_keywords = [kw for kw in keywords if kw in url.lower()]
-    suspicious_words = len(found_keywords)
 
-    special_chars = r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,<>\/?]"
-    special_char_count = len(re.findall(special_chars, url))
-    digits_count = sum(c.isdigit() for c in url)
+    suspicious_words = sum(
+        1
+        for kw in keywords
+        if kw in url.lower()
+    )
+
+    # Special characters
+    special_chars = (
+        r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,<>\/?]"
+    )
+
+    special_char_count = len(
+        re.findall(
+            special_chars,
+            url
+        )
+    )
+
+    # Digits
+    digits_count = sum(
+        c.isdigit()
+        for c in url
+    )
+
+    # Entropy
     entropy = calculate_entropy(url)
 
-    tld = ext.suffix if ext.suffix else "missing"
+    # TLD
+    tld = (
+        ext.suffix
+        if ext.suffix
+        else "missing"
+    )
 
     return {
         "url_length": url_length,
@@ -105,7 +317,6 @@ def extract_url_features(url):
         "num_subdirs": num_subdirs,
         "num_params": num_params,
         "suspicious_words": suspicious_words,
-        "found_keywords": found_keywords,
         "tld": tld,
         "special_char_count": special_char_count,
         "digits_count": digits_count,
@@ -113,164 +324,365 @@ def extract_url_features(url):
     }
 
 
-def generate_threat_reasons(feats):
-    reasons = []
-    if feats["has_ip"] == 1:
-        reasons.append(
-            "Uses a direct IP address instead of a standard domain name."
-        )
-    if feats["suspicious_words"] > 0:
-        words_str = ", ".join([f"'{w}'" for w in feats["found_keywords"]])
-        reasons.append(
-            f"Contains sensitive target keyword(s): {words_str}."
-        )
-    if feats["url_length"] > 75:
-        reasons.append(
-            f"Excessively long URL string ({feats['url_length']} characters)."
-        )
-    if feats["num_dots"] > 3:
-        reasons.append(
-            f"High sub-domain depth detected ({feats['num_dots']} dots)."
-        )
-    if feats["entropy"] > 4.2:
-        reasons.append(
-            f"High character entropy ({feats['entropy']:.2f}) suggesting random string obfuscation."
-        )
-    if feats["special_char_count"] > 10:
-        reasons.append(
-            f"Unusual density of special characters ({feats['special_char_count']} special symbols)."
-        )
-
-    if not reasons:
-        reasons.append(
-            "Overall structural features resemble typical phishing pattern distribution in training data."
-        )
-
-    return reasons
-
-
-# Sidebar Info
-with st.sidebar:
-    st.header("Model Info")
-    st.info(
-        """
-    - **Model**: Logistic Regression (Config 2)
-    - **Scope**: Lexical Feature Analysis
-    - **Dataset**: 160,064 records
-    """
-    )
-    st.divider()
-    st.caption("CST9 Project | University of Mindanao")
-
-
-# UI Header
-st.title("🛡️ Phishing URL Detector")
+# =========================================================
+# HEADER
+# =========================================================
 st.markdown(
-    "Analyze web links in real-time using **Lexical Feature Extraction** and **Logistic Regression**."
+    '<div class="main-title">Phishing URL Detection System</div>',
+    unsafe_allow_html=True
 )
-st.divider()
 
-# Input Form
+st.markdown(
+    '<div class="subtitle">'
+    'Machine learning-based detection of potentially malicious URLs '
+    'using lexical URL features.'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+
+# =========================================================
+# URL INPUT
+# =========================================================
+st.markdown("### URL Analysis")
+
 url_input = st.text_input(
-    "Enter URL to Analyze:",
-    placeholder="e.g., http://login-verify-account.com/signin",
+    "Enter URL",
+    placeholder="https://example.com/login",
+    label_visibility="collapsed"
 )
 
-if st.button("Analyze URL", type="primary", use_container_width=True):
+st.caption(
+    "Enter the complete URL you want the system to analyze."
+)
+
+
+# =========================================================
+# ANALYZE BUTTON
+# =========================================================
+analyze = st.button(
+    "Analyze URL",
+    type="primary",
+    use_container_width=True
+)
+
+
+# =========================================================
+# ANALYSIS
+# =========================================================
+if analyze:
+
+    # Empty URL
     if not url_input.strip():
-        st.warning("Please enter a URL to inspect.")
+
+        st.warning(
+            "Please enter a URL before starting the analysis."
+        )
+
+    # Model unavailable
     elif not model_loaded:
-        st.error("Model artifacts failed to load.")
+
+        st.error(
+            "The machine learning model could not be loaded."
+        )
+
     else:
-        feats = extract_url_features(url_input)
 
-        # Prepare DataFrame for pipeline
-        feat_dict_for_df = feats.copy()
-        feat_dict_for_df.pop("found_keywords", None)
-        df_feat = pd.DataFrame([feat_dict_for_df])
+        # -------------------------------------------------
+        # Basic URL validation
+        # -------------------------------------------------
+        clean_url = url_input.strip()
 
-        # Encode and Scale
-        df_encoded = pd.get_dummies(df_feat)
-        df_encoded = df_encoded.reindex(columns=feature_cols, fill_value=0)
+        if not re.match(
+            r"^https?://",
+            clean_url,
+            re.IGNORECASE
+        ):
 
-        valid_scale_cols = [c for c in scaled_cols if c in df_encoded.columns]
-        if valid_scale_cols:
-            df_encoded[valid_scale_cols] = scaler.transform(
-                df_encoded[valid_scale_cols].to_numpy()
+            st.warning(
+                "Please enter a complete URL beginning "
+                "with http:// or https://."
             )
 
-        # Predict
-        X_input = df_encoded.to_numpy()
-        prediction = model.predict(X_input)[0]
-        prob = model.predict_proba(X_input)[0]
-        phish_prob = prob[1] * 100
+        else:
 
-        st.divider()
+            # -------------------------------------------------
+            # Extract features
+            # -------------------------------------------------
+            feats = extract_url_features(
+                clean_url
+            )
 
-        # Result Banner & Metrics
-        col_res1, col_res2 = st.columns([1, 1])
+            df_feat = pd.DataFrame(
+                [feats]
+            )
 
-        with col_res1:
-            if prediction == 1 or phish_prob > 50.0:
-                st.error("**HIGH RISK: PHISHING DETECTED**")
-                st.metric("Phishing Probability", f"{phish_prob:.2f}%")
-            else:
-                st.success("**LOW RISK: BENIGN URL**")
-                st.metric("Legitimate Confidence", f"{100 - phish_prob:.2f}%")
+            # -------------------------------------------------
+            # Encode TLD
+            # -------------------------------------------------
+            df_encoded = pd.get_dummies(
+                df_feat
+            )
 
-        with col_res2:
-            st.write("**Threat Confidence Level:**")
-            st.progress(int(phish_prob) / 100)
+            # Match model columns
+            df_encoded = df_encoded.reindex(
+                columns=feature_cols,
+                fill_value=0
+            )
 
-            if phish_prob > 50.0:
-                st.caption(
-                    "**Recommendation**: Do not enter credentials or download files from this link."
+            # -------------------------------------------------
+            # Scale numeric columns
+            # -------------------------------------------------
+            valid_scale_cols = [
+                c
+                for c in scaled_cols
+                if c in df_encoded.columns
+            ]
+
+            if valid_scale_cols:
+
+                df_encoded[
+                    valid_scale_cols
+                ] = scaler.transform(
+                    df_encoded[
+                        valid_scale_cols
+                    ].to_numpy()
                 )
-            else:
-                st.caption(
-                    "**Recommendation**: URL structure aligns with standard benign patterns."
-                )
 
-        st.divider()
+            # -------------------------------------------------
+            # Prediction
+            # -------------------------------------------------
+            X_input = df_encoded.to_numpy()
 
-        # Suspicious Reason Analysis
-        if prediction == 1 or phish_prob > 50.0:
-            st.subheader("Why is this URL suspicious?")
-            reasons = generate_threat_reasons(feats)
-            for r in reasons:
-                st.markdown(f"-{r}")
+            prediction = model.predict(
+                X_input
+            )[0]
+
+            prob = model.predict_proba(
+                X_input
+            )[0]
+
+            phish_prob = prob[1] * 100
+
+            legitimate_prob = (
+                100 - phish_prob
+            )
+
+            # =================================================
+            # RESULT
+            # =================================================
             st.divider()
 
-        # Clean Feature Table (Replaces raw JSON)
-        st.subheader("Extracted Lexical Features")
+            if prediction == 1 or phish_prob > 50:
 
-        table_data = {
-            "Feature Metric": [
-                "URL Length",
-                "Dot Count",
-                "HTTPS Protocol",
-                "IP Address Usage",
-                "Subdirectory Depth",
-                "Query Parameters",
-                "Suspicious Keywords",
-                "TLD Suffix",
-                "Special Character Count",
-                "Digits Count",
-                "Shannon Entropy Score",
-            ],
-            "Value": [
-                f"{feats['url_length']} chars",
-                feats["num_dots"],
-                "Yes" if feats["has_https"] else "No",
-                "Yes" if feats["has_ip"] else "No",
-                feats["num_subdirs"],
-                feats["num_params"],
-                feats["suspicious_words"],
-                feats["tld"],
-                feats["special_char_count"],
-                feats["digits_count"],
-                f"{feats['entropy']:.4f}",
-            ],
-        }
+                # -------------------------------
+                # PHISHING RESULT
+                # -------------------------------
+                st.markdown(
+                    """
+                    <div class="result-card danger-card">
+                        <div class="result-title">
+                            HIGH RISK: PHISHING URL DETECTED
+                        </div>
+                        <div class="result-description">
+                            The machine learning model classified
+                            this URL as potentially malicious.
+                            Avoid entering personal or sensitive
+                            information on this website.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-        st.table(pd.DataFrame(table_data))
+                st.markdown(
+                    '<div class="probability-label">'
+                    'Phishing Probability'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    f'<div class="probability-value">'
+                    f'{phish_prob:.2f}%'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.progress(
+                    min(phish_prob / 100, 1.0)
+                )
+
+            else:
+
+                # -------------------------------
+                # BENIGN RESULT
+                # -------------------------------
+                st.markdown(
+                    """
+                    <div class="result-card safe-card">
+                        <div class="result-title">
+                            LOW RISK: BENIGN URL
+                        </div>
+                        <div class="result-description">
+                            The machine learning model classified
+                            this URL as likely legitimate.
+                            However, users should still exercise
+                            caution when visiting unfamiliar websites.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    '<div class="probability-label">'
+                    'Legitimate Probability'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.markdown(
+                    f'<div class="probability-value">'
+                    f'{legitimate_prob:.2f}%'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+                st.progress(
+                    min(legitimate_prob / 100, 1.0)
+                )
+
+            # =================================================
+            # URL INFORMATION
+            # =================================================
+            st.markdown(
+                '<div class="section-title">'
+                'Analyzed URL'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+            st.code(
+                clean_url,
+                language=None
+            )
+
+            # =================================================
+            # FEATURE ANALYSIS
+            # =================================================
+            st.markdown(
+                '<div class="section-title">'
+                'Extracted URL Features'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+            # Create readable feature table
+            feature_display = pd.DataFrame({
+                "Feature": [
+                    "URL Length",
+                    "Number of Dots",
+                    "HTTPS",
+                    "IP Address",
+                    "Number of Subdirectories",
+                    "Number of Parameters",
+                    "Suspicious Keywords",
+                    "Top-Level Domain",
+                    "Special Characters",
+                    "Digits",
+                    "Entropy",
+                ],
+
+                "Value": [
+                    feats["url_length"],
+                    feats["num_dots"],
+                    "Yes"
+                    if feats["has_https"]
+                    else "No",
+                    "Yes"
+                    if feats["has_ip"]
+                    else "No",
+                    feats["num_subdirs"],
+                    feats["num_params"],
+                    feats["suspicious_words"],
+                    feats["tld"],
+                    feats["special_char_count"],
+                    feats["digits_count"],
+                    f'{feats["entropy"]:.4f}',
+                ]
+            })
+
+            st.dataframe(
+                feature_display,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # =================================================
+            # MODEL INFORMATION
+            # =================================================
+            st.markdown(
+                '<div class="section-title">'
+                'Detection Model'
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                st.markdown(
+                    """
+                    <div class="info-card">
+                        <div class="info-label">
+                            Machine Learning Algorithm
+                        </div>
+                        <div class="info-value">
+                            Logistic Regression
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            with col2:
+
+                st.markdown(
+                    """
+                    <div class="info-card">
+                        <div class="info-label">
+                            Analysis Type
+                        </div>
+                        <div class="info-value">
+                            Lexical URL Analysis
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            # =================================================
+            # DISCLAIMER
+            # =================================================
+            st.info(
+                "Detection results are predictions generated by "
+                "a machine learning model. A high-risk result "
+                "does not guarantee that a website is malicious, "
+                "and a low-risk result does not guarantee complete safety."
+            )
+
+
+# =========================================================
+# FOOTER
+# =========================================================
+st.markdown(
+    """
+    <div class="footer">
+        Phishing URL Detection System<br>
+        Machine Learning-Based URL Classification
+    </div>
+    """,
+    unsafe_allow_html=True
+)
