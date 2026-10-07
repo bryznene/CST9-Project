@@ -106,14 +106,26 @@ def extract_url_features(url):
     }
 
 
-# UI
-st.title("Phishing URL Detection System")
+# UI Header matching image exact layout
 st.markdown(
-    '<div class="subtitle">'
-    'Machine learning-based detection of potentially malicious URLs '
-    'using lexical URL features.'
-    '</div>',
-    unsafe_allow_html=True
+    """
+    <style>
+    .main-title {
+        font-size: 2.6rem;
+        font-weight: 800;
+        margin-bottom: 0.2rem;
+        line-height: 1.2;
+    }
+    .sub-title {
+        font-size: 1.05rem;
+        color: #9C9D9F;
+        margin-bottom: 1.5rem;
+    }
+    </style>
+    <div class="main-title">Phishing URL Detection System</div>
+    <div class="sub-title">Machine learning-based detection of potentially malicious URLs using lexical URL features.</div>
+    """,
+    unsafe_allow_html=True,
 )
 
 url_input = st.text_input(
