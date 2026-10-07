@@ -108,7 +108,7 @@ def extract_url_features(url):
 
 # UI
 st.title("Phishing URL Detection System")
-st.markdown("Enter a URL to analyze its lexical features using Logistic Regression.")
+st.markdown("Machine learning-based detection of potentially malicious URLs.")
 
 url_input = st.text_input(
     "Enter URL:", placeholder="http://182.116.11.31:57515/bin.sh"
