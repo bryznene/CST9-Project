@@ -69,9 +69,7 @@ def extract_url_features(url):
     has_ip = 1 if ip_pattern.match(domain.split(":")[0]) else 0
 
     path = parsed.path
-    num_subdirs = max(
-        0, path.count("/") - (1 if path.endswith("/") else 0)
-    )
+    num_subdirs = max(0, path.count("/") - (1 if path.endswith("/") else 0))
     num_params = len(parsed.query.split("&")) if parsed.query else 0
 
     keywords = [
@@ -129,15 +127,14 @@ if st.button("Analyze URL", type="primary"):
         df_encoded = pd.get_dummies(df_feat)
         df_encoded = df_encoded.reindex(columns=feature_cols, fill_value=0)
 
-        # Scale only the numeric columns that were originally scaled
+        # Scale numeric features
         valid_scale_cols = [c for c in scaled_cols if c in df_encoded.columns]
         if valid_scale_cols:
-            # Convert to numpy array to strip feature names and prevent scikit-learn mismatch errors
             df_encoded[valid_scale_cols] = scaler.transform(
                 df_encoded[valid_scale_cols].to_numpy()
             )
 
-        # Predict using numpy values
+        # Predict
         X_input = df_encoded.to_numpy()
         prediction = model.predict(X_input)[0]
         prob = model.predict_proba(X_input)[0]
@@ -194,3 +191,23 @@ if st.button("Analyze URL", type="primary"):
                 "Yes" if feats["has_https"] == 1 else "No",
                 "Yes" if feats["has_ip"] == 1 else "No",
                 str(feats["num_subdirs"]),
+                str(feats["num_params"]),
+                str(feats["suspicious_words"]),
+                str(feats["tld"]),
+                str(feats["special_char_count"]),
+                str(feats["digits_count"]),
+            ],
+        }
+
+        df_table = pd.DataFrame(feature_table_data)
+        st.dataframe(df_table, hide_index=True, use_container_width=True)
+
+        st.write("")
+
+        # 5. Detection Model Cards
+        st.markdown("### Detection Model")
+        col_m1, col_m2 = st.columns(2)
+
+        with col_m1:
+            st.info(
+                "**Machine Learning Algorithm**\n\n" "### Logistic Regression"
