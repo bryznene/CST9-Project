@@ -176,11 +176,11 @@ url_input = st.text_input(
     placeholder="e.g., http://login-verify-account.com/signin",
 )
 
-if st.button("🔍 Analyze URL", type="primary", use_container_width=True):
+if st.button("Analyze URL", type="primary", use_container_width=True):
     if not url_input.strip():
-        st.warning("⚠️ Please enter a URL to inspect.")
+        st.warning("Please enter a URL to inspect.")
     elif not model_loaded:
-        st.error("❌ Model artifacts failed to load.")
+        st.error("Model artifacts failed to load.")
     else:
         feats = extract_url_features(url_input)
 
@@ -215,7 +215,7 @@ if st.button("🔍 Analyze URL", type="primary", use_container_width=True):
                 st.error("🚨 **HIGH RISK: PHISHING DETECTED**")
                 st.metric("Phishing Probability", f"{phish_prob:.2f}%")
             else:
-                st.success("✅ **LOW RISK: BENIGN URL**")
+                st.success("**LOW RISK: BENIGN URL**")
                 st.metric("Legitimate Confidence", f"{100 - phish_prob:.2f}%")
 
         with col_res2:
@@ -224,25 +224,25 @@ if st.button("🔍 Analyze URL", type="primary", use_container_width=True):
 
             if phish_prob > 50.0:
                 st.caption(
-                    "⚠️ **Recommendation**: Do not enter credentials or download files from this link."
+                    "**Recommendation**: Do not enter credentials or download files from this link."
                 )
             else:
                 st.caption(
-                    "🔒 **Recommendation**: URL structure aligns with standard benign patterns."
+                    "**Recommendation**: URL structure aligns with standard benign patterns."
                 )
 
         st.divider()
 
         # Suspicious Reason Analysis
         if prediction == 1 or phish_prob > 50.0:
-            st.subheader("🧐 Why is this URL suspicious?")
+            st.subheader("Why is this URL suspicious?")
             reasons = generate_threat_reasons(feats)
             for r in reasons:
-                st.markdown(f"- ⚠️ {r}")
+                st.markdown(f"-{r}")
             st.divider()
 
         # Clean Feature Table (Replaces raw JSON)
-        st.subheader("📊 Extracted Lexical Features")
+        st.subheader("Extracted Lexical Features")
 
         table_data = {
             "Feature Metric": [
