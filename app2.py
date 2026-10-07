@@ -129,7 +129,7 @@ st.markdown(
 )
 
 url_input = st.text_input(
-    "Enter URL:", placeholder="http://182.116.11.31:57515/bin.sh"
+    "Enter URL:", placeholder="https://example.com/login"
 )
 
 if st.button("Analyze URL", type="primary"):
