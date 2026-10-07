@@ -169,7 +169,7 @@ if st.button("Analyze URL", type="primary"):
 
         st.write("")
 
-        # 4. Extracted URL Features Table
+        # 4. Extracted URL Features Table (Includes Entropy)
         st.markdown("### Extracted URL Features")
 
         feature_table_data = {
@@ -184,6 +184,7 @@ if st.button("Analyze URL", type="primary"):
                 "Top-Level Domain",
                 "Special Characters",
                 "Digits",
+                "Entropy",
             ],
             "Value": [
                 str(feats["url_length"]),
@@ -196,6 +197,7 @@ if st.button("Analyze URL", type="primary"):
                 str(feats["tld"]),
                 str(feats["special_char_count"]),
                 str(feats["digits_count"]),
+                f"{feats['entropy']:.4f}",
             ],
         }
 
