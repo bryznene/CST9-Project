@@ -9,7 +9,7 @@ import streamlit as st
 import tldextract
 
 st.set_page_config(
-    page_title="Phishing URL Detector", page_icon="", layout="centered"
+    page_title="Phishing URL Detector", page_icon="🛡️", layout="centered"
 )
 
 
@@ -107,7 +107,7 @@ def extract_url_features(url):
 
 
 # UI
-st.title("🛡️ Phishing URL Detection System")
+st.title("Phishing URL Detection System")
 st.markdown("Enter a URL to analyze its lexical features using Logistic Regression.")
 
 url_input = st.text_input(
