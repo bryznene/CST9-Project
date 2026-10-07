@@ -1,0 +1,131 @@
+import math
+import os
+import re
+from urllib.parse import urlparse
+import joblib
+import numpy as np
+import pandas as pd
+import streamlit as st
+import tldextract
+
+st.set_page_config(
+    page_title="Phishing URL Detector", page_icon="🛡️", layout="centered"
+)
+
+
+# Load artifacts
+@st.cache_resource
+def load_artifacts():
+    model = joblib.load("artifacts/logistic_regression_phishing_model.joblib")
+    scaler = joblib.load("artifacts/feature_scaler.joblib")
+    feature_cols = joblib.load("artifacts/feature_columns.joblib")
+    return model, scaler, feature_cols
+
+
+try:
+    model, scaler, feature_cols = load_artifacts()
+    model_loaded = True
+except Exception as e:
+    model_loaded = False
+    st.error(f"Error loading artifacts: {e}")
+
+
+# Feature extraction matching your pipeline
+def calculate_entropy(text):
+    if not text:
+        return 0.0
+    prob = [float(text.count(c)) / len(text) for c in set(text)]
+    return -sum([p * math.log(p, 2) for p in prob])
+
+
+def extract_url_features(url):
+    parsed = urlparse(url)
+    ext = tldextract.extract(url)
+
+    url_length = len(url)
+    num_dots = url.count(".")
+    has_https = 1 if parsed.scheme.lower() == "https" else 0
+
+    domain = parsed.netloc or parsed.path.split("/")[0]
+    ip_pattern = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+    has_ip = 1 if ip_pattern.match(domain.split(":")[0]) else 0
+
+    path = parsed.path
+    num_subdirs = max(
+        0, path.count("/") - (1 if path.endswith("/") else 0)
+    )
+    num_params = len(parsed.query.split("&")) if parsed.query else 0
+
+    keywords = [
+        "login",
+        "verify",
+        "update",
+        "secure",
+        "account",
+        "banking",
+        "signin",
+        "confirm",
+    ]
+    suspicious_words = sum(1 for kw in keywords if kw in url.lower())
+
+    special_chars = r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,<>\/?]"
+    special_char_count = len(re.findall(special_chars, url))
+    digits_count = sum(c.isdigit() for c in url)
+    entropy = calculate_entropy(url)
+
+    tld = ext.suffix if ext.suffix else "missing"
+
+    return {
+        "url_length": url_length,
+        "num_dots": num_dots,
+        "has_https": has_https,
+        "has_ip": has_ip,
+        "num_subdirs": num_subdirs,
+        "num_params": num_params,
+        "suspicious_words": suspicious_words,
+        "tld": tld,
+        "special_char_count": special_char_count,
+        "digits_count": digits_count,
+        "entropy": entropy,
+    }
+
+
+# UI
+st.title("🛡️ Phishing URL Detection System")
+st.markdown("Enter a URL to analyze its lexical features using Logistic Regression.")
+
+url_input = st.text_input(
+    "Enter URL:", placeholder="https://secure-login-attempt.com/update"
+)
+
+if st.button("Analyze URL", type="primary"):
+    if not url_input.strip():
+        st.warning("Please enter a valid URL.")
+    elif not model_loaded:
+        st.error("Model artifacts not loaded properly.")
+    else:
+        feats = extract_url_features(url_input)
+        df_feat = pd.DataFrame([feats])
+
+        # Match column encoding/alignment
+        df_encoded = pd.get_dummies(df_feat)
+        df_encoded = df_encoded.reindex(columns=feature_cols, fill_value=0)
+
+        # Scale features
+        X_scaled = scaler.transform(df_encoded)
+
+        # Predict
+        prediction = model.predict(X_scaled)[0]
+        prob = model.predict_proba(X_scaled)[0]
+        phish_prob = prob[1] * 100
+
+        st.divider()
+        if prediction == 1 or phish_prob > 50.0:
+            st.error("⚠️ **High Risk: PHISHING URL DETECTED**")
+            st.metric("Phishing Probability", f"{phish_prob:.2f}%")
+        else:
+            st.success("✅ **Low Risk: BENIGN URL**")
+            st.metric("Legitimate Probability", f"{100 - phish_prob:.2f}%")
+
+        with st.expander("🔍 View Extracted Features"):
+            st.json(feats)
