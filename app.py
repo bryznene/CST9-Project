@@ -13,24 +13,42 @@ st.set_page_config(
 )
 
 
-# Load artifacts
+# Load artifacts matching your saved pipeline
 @st.cache_resource
 def load_artifacts():
     model = joblib.load("artifacts/logistic_regression_phishing_model.joblib")
     scaler = joblib.load("artifacts/feature_scaler.joblib")
     feature_cols = joblib.load("artifacts/feature_columns.joblib")
-    return model, scaler, feature_cols
+
+    # Load scaled columns if present, otherwise default to numeric feature list
+    scaled_cols_path = "artifacts/scaled_columns.joblib"
+    if os.path.exists(scaled_cols_path):
+        scaled_cols = joblib.load(scaled_cols_path)
+    else:
+        scaled_cols = [
+            "url_length",
+            "num_dots",
+            "has_https",
+            "has_ip",
+            "num_subdirs",
+            "num_params",
+            "suspicious_words",
+            "special_char_count",
+            "digits_count",
+            "entropy",
+        ]
+
+    return model, scaler, feature_cols, scaled_cols
 
 
 try:
-    model, scaler, feature_cols = load_artifacts()
+    model, scaler, feature_cols, scaled_cols = load_artifacts()
     model_loaded = True
 except Exception as e:
     model_loaded = False
     st.error(f"Error loading artifacts: {e}")
 
 
-# Feature extraction matching your pipeline
 def calculate_entropy(text):
     if not text:
         return 0.0
@@ -95,7 +113,7 @@ st.title("🛡️ Phishing URL Detection System")
 st.markdown("Enter a URL to analyze its lexical features using Logistic Regression.")
 
 url_input = st.text_input(
-    "Enter URL:", placeholder="https://secure-login-attempt.com/update"
+    "Enter URL:", placeholder="https://login-verify-account-update.com/signin"
 )
 
 if st.button("Analyze URL", type="primary"):
@@ -107,16 +125,22 @@ if st.button("Analyze URL", type="primary"):
         feats = extract_url_features(url_input)
         df_feat = pd.DataFrame([feats])
 
-        # Match column encoding/alignment
+        # One-hot encode and reindex to match model feature columns
         df_encoded = pd.get_dummies(df_feat)
         df_encoded = df_encoded.reindex(columns=feature_cols, fill_value=0)
 
-        # Scale features
-        X_scaled = scaler.transform(df_encoded)
+        # Scale only the numeric columns that were originally scaled
+        valid_scale_cols = [c for c in scaled_cols if c in df_encoded.columns]
+        if valid_scale_cols:
+            # Convert to numpy array to strip feature names and prevent scikit-learn mismatch errors
+            df_encoded[valid_scale_cols] = scaler.transform(
+                df_encoded[valid_scale_cols].to_numpy()
+            )
 
-        # Predict
-        prediction = model.predict(X_scaled)[0]
-        prob = model.predict_proba(X_scaled)[0]
+        # Predict using numpy values
+        X_input = df_encoded.to_numpy()
+        prediction = model.predict(X_input)[0]
+        prob = model.predict_proba(X_input)[0]
         phish_prob = prob[1] * 100
 
         st.divider()
