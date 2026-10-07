@@ -59,8 +59,7 @@ def calculate_entropy(text):
 
 
 def extract_url_features(url):
-    # Hybrid Pre-processing: Strip scheme prefixes (http://, https://) before counting length
-    # to resolve training dataset artifact where all benign URLs lacked protocol prefixes.
+    # Strip protocol prefix to normalize with dataset structure
     clean_url = re.sub(r"^https?://", "", url, flags=re.IGNORECASE)
 
     parsed = urlparse(url)
@@ -69,7 +68,7 @@ def extract_url_features(url):
     url_length = len(clean_url)
     num_dots = clean_url.count(".")
 
-    # Evaluate has_https status on original input URL
+    # Keep has_https based on original input
     has_https = 1 if url.lower().startswith("https://") else 0
 
     domain = parsed.netloc or parsed.path.split("/")[0]
