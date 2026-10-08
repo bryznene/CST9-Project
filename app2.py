@@ -4,7 +4,6 @@ import numpy as np
 import joblib
 import re
 from urllib.parse import urlparse
-import plotly.graph_objects as go
 
 # 1. Page Configuration
 st.set_page_config(
@@ -14,115 +13,30 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. Custom CSS to match the exact design & maroon color scheme (#C23B4E)
+# Custom CSS
 st.markdown("""
 <style>
-    /* Main container background */
-    .stApp {
-        background-color: #F8F9FA;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
-    /* Top Red Accent Line */
-    .top-accent-line {
-        border-top: 3px solid #C23B4E;
-        margin-top: -30px;
-        margin-bottom: 25px;
-    }
-
-    /* Card styling */
-    .custom-card {
-        background-color: #FFFFFF;
-        border-radius: 8px;
-        padding: 24px;
-        border: 1px solid #E9ECEF;
-        margin-bottom: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    }
-
-    /* Section Headings */
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #212529;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 16px;
-    }
-
-    /* Custom Maroon Primary Button */
+    .stApp { background-color: #F8F9FA; font-family: 'Inter', sans-serif; }
+    .top-accent-line { border-top: 3px solid #C23B4E; margin-top: -30px; margin-bottom: 25px; }
+    .custom-card { background-color: #FFFFFF; border-radius: 8px; padding: 24px; border: 1px solid #E9ECEF; margin-bottom: 20px; }
+    .section-title { font-size: 1.1rem; font-weight: 700; color: #212529; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    
     div.stButton > button:first-child {
-        background-color: #C23B4E !important;
-        color: white !important;
-        font-weight: 600 !important;
-        border-radius: 6px !important;
-        border: none !important;
-        padding: 0.6rem 1.5rem !important;
-        width: 100%;
-        height: 46px;
+        background-color: #C23B4E !important; color: white !important; font-weight: 600 !important;
+        border-radius: 6px !important; border: none !important; padding: 0.6rem 1.5rem !important; width: 100%; height: 46px;
     }
-    div.stButton > button:first-child:hover {
-        background-color: #A02B3C !important;
-        color: white !important;
-    }
-
-    /* Table Styling */
-    .feature-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9rem;
-    }
-    .feature-table th {
-        background-color: #F8F9FA;
-        color: #495057;
-        font-weight: 600;
-        text-align: left;
-        padding: 10px 14px;
-        border-bottom: 2px solid #DEE2E6;
-    }
-    .feature-table td {
-        padding: 9px 14px;
-        border-bottom: 1px solid #E9ECEF;
-        color: #212529;
-    }
-    .feature-table tr:last-child td {
-        border-bottom: none;
-    }
-
-    /* Unresolved Verdict Box */
-    .verdict-box {
-        border: 1.5px dashed #CED4DA;
-        border-radius: 8px;
-        padding: 30px 15px;
-        text-align: center;
-        background-color: #FAFAFA;
-        min-height: 160px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
-    .verdict-box-danger {
-        border: 1.5px solid #DC3545;
-        border-radius: 8px;
-        padding: 30px 15px;
-        text-align: center;
-        background-color: #FFF5F5;
-        min-height: 160px;
-    }
-    .verdict-box-safe {
-        border: 1.5px solid #198754;
-        border-radius: 8px;
-        padding: 30px 15px;
-        text-align: center;
-        background-color: #F0FFF4;
-        min-height: 160px;
-    }
+    
+    .feature-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .feature-table th { background-color: #F8F9FA; color: #495057; font-weight: 600; text-align: left; padding: 10px 14px; border-bottom: 2px solid #DEE2E6; }
+    .feature-table td { padding: 9px 14px; border-bottom: 1px solid #E9ECEF; color: #212529; }
+    
+    .verdict-box { border: 1.5px dashed #CED4DA; border-radius: 8px; padding: 25px 15px; text-align: center; background-color: #FAFAFA; }
+    .verdict-box-danger { border: 1.5px solid #DC3545; border-radius: 8px; padding: 25px 15px; text-align: center; background-color: #FFF5F5; }
+    .verdict-box-safe { border: 1.5px solid #198754; border-radius: 8px; padding: 25px 15px; text-align: center; background-color: #F0FFF4; }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Load Saved Pipeline Artifacts
+# Load Artifacts
 @st.cache_resource
 def load_artifacts():
     try:
@@ -134,13 +48,11 @@ def load_artifacts():
 
 model, scaler = load_artifacts()
 
-# 4. Feature Extraction Engine
 def extract_features(url):
     parsed = urlparse(url)
     domain = parsed.netloc or parsed.path.split('/')[0]
     path = parsed.path
-    
-    features = {
+    return {
         "URL Length": len(url),
         "Number of Dots": url.count('.'),
         "Number of Hyphens": url.count('-'),
@@ -154,44 +66,27 @@ def extract_features(url):
         "Number of Query Parameters": len(parsed.query.split('&')) if parsed.query else 0,
         "Presence of Suspicious Words": 1 if re.search(r'(login|verify|update|account|banking|secure|signin)', url, re.IGNORECASE) else 0
     }
-    return features
 
-# 5. Header Section
+# Header
 col_logo, col_title = st.columns([0.08, 0.92])
 with col_logo:
-    st.markdown("""
-        <div style="background-color: #C23B4E; width: 42px; height: 48px; border-radius: 6px 6px 20px 20px; 
-                    display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; font-weight: bold;">
-            ⚓
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown('<div style="background-color: #C23B4E; width: 42px; height: 48px; border-radius: 6px 6px 20px 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 22px;">⚓</div>', unsafe_allow_html=True)
 with col_title:
-    st.markdown("""
-        <h2 style='margin:0; padding:0; font-weight: 800; color: #1A1A1A; font-size: 1.7rem;'>Phishing URL Detection</h2>
-        <p style='margin:0; color: #6C757D; font-size: 0.95rem;'>Enter a URL to analyze and detect potential phishing threats.</p>
-    """, unsafe_allow_html=True)
+    st.markdown('<h2 style="margin:0; font-weight: 800; color: #1A1A1A;">Phishing URL Detection</h2><p style="margin:0; color: #6C757D;">Enter a URL to analyze and detect potential phishing threats.</p>', unsafe_allow_html=True)
 
 st.markdown('<div class="top-accent-line"></div>', unsafe_allow_html=True)
 
-# 6. Card 1: URL Input
+# Input Card
 st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title"><span style="color:#C23B4E;">🔗</span> URL Input</div>', unsafe_allow_html=True)
-
+st.markdown('<div class="section-title"><span style="color:#C23B4E;"></span> URL Input</div>', unsafe_allow_html=True)
 col_input, col_btn = st.columns([0.82, 0.18])
 with col_input:
-    url_input = st.text_input(
-        label="URL Input",
-        placeholder="Enter or paste a URL to analyze...",
-        label_visibility="collapsed"
-    )
+    url_input = st.text_input(label="URL", placeholder="Enter or paste a URL to analyze...", label_visibility="collapsed")
     st.caption("Example: https://www.example.com")
-
 with col_btn:
     analyze_clicked = st.button("Analyze")
-
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Process State
 features_dict = None
 is_analyzed = False
 phishing_prob = 0.0
@@ -199,110 +94,47 @@ phishing_prob = 0.0
 if analyze_clicked and url_input:
     features_dict = extract_features(url_input)
     is_analyzed = True
-    
-    # Model Prediction Logic
     if model and scaler:
         input_vector = np.array(list(features_dict.values())).reshape(1, -1)
         scaled_vector = scaler.transform(input_vector)
-        phishing_prob = model.predict_proba(scaled_vector)[0][1] * 100
+        phishing_prob = float(model.predict_proba(scaled_vector)[0][1] * 100)
     else:
-        # Fallback dummy probability for UI visualization if model artifact is absent
         phishing_prob = 15.0 if "https" in url_input and "login" not in url_input else 82.5
 
-# 7. Card 2: Extracted URL Features
+# Features Card
 st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title"><span style="color:#C23B4E;">📅</span> Extracted URL Features</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title"><span style="color:#C23B4E;"></span> Extracted URL Features</div>', unsafe_allow_html=True)
 
 if features_dict:
     table_rows = "".join([f"<tr><td><b>{k}</b></td><td>{v}</td></tr>" for k, v in features_dict.items()])
 else:
-    default_features = [
-        "URL Length", "Number of Dots", "Number of Hyphens", "Number of Underscores",
-        "Number of Slashes", "Presence of IP Address", "Number of Subdomains",
-        "HTTPS Token in Domain", "Presence of @ Symbol", "Presence of Double Slash",
-        "Number of Query Parameters", "Presence of Suspicious Words"
-    ]
+    default_features = ["URL Length", "Number of Dots", "Number of Hyphens", "Number of Underscores", "Number of Slashes", "Presence of IP Address", "Number of Subdomains", "HTTPS Token in Domain", "Presence of @ Symbol", "Presence of Double Slash", "Number of Query Parameters", "Presence of Suspicious Words"]
     table_rows = "".join([f"<tr><td><b>{feat}</b></td><td></td></tr>" for feat in default_features])
 
-st.markdown(f"""
-<table class="feature-table">
-    <thead>
-        <tr>
-            <th style="width: 60%;">Feature</th>
-            <th style="width: 40%;">Value</th>
-        </tr>
-    </thead>
-    <tbody>
-        {table_rows}
-    </tbody>
-</table>
-""", unsafe_allow_html=True)
-
+st.markdown(f'<table class="feature-table"><thead><tr><th style="width: 60%;">Feature</th><th style="width: 40%;">Value</th></tr></thead><tbody>{table_rows}</tbody></table>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 8. Card 3: Detection Result
+# Results Card
 st.markdown('<div class="custom-card">', unsafe_allow_html=True)
 st.markdown('<div class="section-title"><span style="color:#C23B4E;">🛡️</span> Detection Result</div>', unsafe_allow_html=True)
-
 res_col1, res_col2 = st.columns([0.45, 0.55])
 
 with res_col1:
-    st.markdown("<p style='text-align:center; font-weight:700; color:#495057; font-size:0.9rem; margin-bottom:10px;'>Verdict</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; font-weight:700; color:#495057;'>Verdict</p>", unsafe_allow_html=True)
     if not is_analyzed:
-        st.markdown("""
-        <div class="verdict-box">
-            <div style="font-size: 36px; color: #ADB5BD;">🛡️</div>
-            <div style="color: #6C757D; font-weight: 600; margin-top: 8px;">Unresolved</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="verdict-box"><div style="font-size: 36px; color: #ADB5BD;">🛡️</div><div style="color: #6C757D; font-weight: 600;">Unresolved</div></div>', unsafe_allow_html=True)
+    elif phishing_prob >= 50:
+        st.markdown('<div class="verdict-box-danger"><div style="font-size: 36px; color: #DC3545;"></div><div style="color: #DC3545; font-weight: 700;">High Risk Phishing</div></div>', unsafe_allow_html=True)
     else:
-        if phishing_prob >= 50:
-            st.markdown(f"""
-            <div class="verdict-box-danger">
-                <div style="font-size: 36px; color: #DC3545;">⚠️</div>
-                <div style="color: #DC3545; font-weight: 700; font-size: 1.1rem; margin-top: 8px;">High Risk Phishing</div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="verdict-box-safe">
-                <div style="font-size: 36px; color: #198754;">✅</div>
-                <div style="color: #198754; font-weight: 700; font-size: 1.1rem; margin-top: 8px;">Legitimate / Safe</div>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown('<div class="verdict-box-safe"><div style="font-size: 36px; color: #198754;"></div><div style="color: #198754; font-weight: 700;">Legitimate / Safe</div></div>', unsafe_allow_html=True)
 
 with res_col2:
-    st.markdown("<p style='text-align:center; font-weight:700; color:#495057; font-size:0.9rem; margin-bottom:0;'>Phishing Probability</p>", unsafe_allow_html=True)
-    
-    gauge_value = phishing_prob if is_analyzed else 0
-    gauge_color = "#C23B4E" if gauge_value >= 50 else "#198754"
+    st.markdown("<p style='text-align:center; font-weight:700; color:#495057;'>Phishing Probability</p>", unsafe_allow_html=True)
     if not is_analyzed:
-        gauge_color = "#DEE2E6"
-
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number" if is_analyzed else "gauge",
-        value=gauge_value,
-        number={'suffix': "%", 'font': {'size': 24, 'color': '#212529', 'family': 'Inter'}},
-        gauge={
-            'axis': {'range': [0, 100], 'visible': False},
-            'bar': {'color': gauge_color, 'thickness': 0.25},
-            'bgcolor': "#E9ECEF",
-            'borderwidth': 0,
-        }
-    ))
-    
-    fig.update_layout(
-        height=140,
-        margin=dict(l=10, r=10, t=10, b=10),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-    
-    if not is_analyzed:
-        st.markdown("<p style='text-align:center; color:#868E96; font-size:0.8rem; margin-top:-15px;'>No analysis performed yet.</p>", unsafe_allow_html=True)
+        st.progress(0)
+        st.markdown("<p style='text-align:center; color:#868E96; font-size:0.85rem; margin-top:10px;'>No analysis performed yet.</p>", unsafe_allow_html=True)
     else:
-        st.markdown(f"<p style='text-align:center; color:#495057; font-weight:600; font-size:0.85rem; margin-top:-15px;'>Confidence: {gauge_value:.1f}%</p>", unsafe_allow_html=True)
+        st.progress(int(phishing_prob))
+        st.markdown(f"<h3 style='text-align:center; color:#212529; margin-top:10px;'>{phishing_prob:.1f}%</h3>", unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
