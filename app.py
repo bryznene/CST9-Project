@@ -147,7 +147,7 @@ if st.button("Analyze URL", type="primary"):
 
         known_tlds = {c[4:] for c in feature_cols if c.startswith("tld_")} - {"other"}
         if feats_model["tld"] not in known_tlds:
-        feats_model["tld"] = "other"
+            feats_model["tld"] = "other"
 
         df_feat = pd.DataFrame([feats_model])
 
