@@ -138,8 +138,18 @@ if st.button("Analyze URL", type="primary"):
     elif not model_loaded:
         st.error("Model artifacts not loaded properly.")
     else:
-        feats = extract_url_features(url_input)
-        df_feat = pd.DataFrame([feats])
+        url = url_input.strip()
+        feats = extract_url_features(url)
+
+        feats_model = dict(feats)
+        feats_model["digit_ratio"] = feats["digits_count"] / max(feats["url_length"], 1)
+        feats_model["risky_combo"] = int(feats["has_https"] == 0 and feats["suspicious_words"] > 0)
+
+        known_tlds = {c[4:] for c in feature_cols if c.startswith("tld_")} - {"other"}
+        if feats_model["tld"] not in known_tlds:
+        feats_model["tld"] = "other"
+
+        df_feat = pd.DataFrame([feats_model])
 
         # One-hot encode and reindex to match model feature columns
         df_encoded = pd.get_dummies(df_feat)
